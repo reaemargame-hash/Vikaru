@@ -81,6 +81,7 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
  <div class="layout">
   <section class="mainPanel card">
    <div id="turnBanner" class="turnBanner"></div>
+   <div id="sharedZombieStage" class="zombieStage hidden"></div>
    <div class="damageTotal"><span>💥 ดาเมจรวมของทีมรอบล่าสุด</span><b id="totalDamage">0</b></div>
    <div id="playerGrid" class="playerGrid"></div>
    <section class="log card"><h3>บันทึกเกม</h3><div id="logList" class="logList"></div></section>
@@ -102,6 +103,20 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
   </aside>
  </div>
 </main>
+
+<div id="spawnTargetModal" class="modal hidden"><div class="modalBox card">
+ <h3>🧟 ใครเป็นคนเปิดเจอซอมบี้?</h3>
+ <p>คนที่เปิดเจอจะกลายเป็น “เป้าหมายหลัก” ของซอมบี้สำหรับระบบโจมตี</p>
+ <div id="spawnTargetList" class="skillList"></div>
+ <div class="modalActions"><button class="btn" id="cancelSpawnTargetBtn">ยกเลิก</button></div>
+</div></div>
+
+<div id="dreamRollModal" class="modal hidden"><div class="modalBox card">
+ <h3>🌙 ทุกคนยืนยันพักแล้ว</h3>
+ <p>แอดมินทอยเต๋าความฝันได้เลย</p>
+ <div id="dreamDiceGrid" class="diceGrid"></div>
+ <div class="modalActions"><button class="btn gold" id="randomDreamBtn">สุ่มเต๋าความฝัน</button></div>
+</div></div>
 
 <div id="restConfirmModal" class="modal hidden"><div class="modalBox card"><h3>🌙 แอดมินขอพักผ่อน</h3><p>ยืนยันว่าจะนอนหรือไม่? ต้องตอบ “ใช่” ครบทุกคนก่อน แอดมินจึงจะทอยฝันดี/ฝันร้ายได้</p><div class="modalActions"><button class="btn danger" id="restNoBtn">ยังไม่นอน</button><button class="btn green" id="restYesBtn">ใช่ นอน</button></div></div></div>
 
@@ -240,15 +255,19 @@ function renderGame(){
  }
  $('turnBanner').textContent=banner;
  $('totalDamage').textContent=c?.lastRoundDamage??c?.roundDamage??0;
+ $('sharedZombieStage').classList.toggle('hidden',!c?.active);
+ if(c?.active)$('sharedZombieStage').innerHTML=zombieHtml();
  $('playerGrid').innerHTML=players().map(playerCard).join("");
  renderAdmin();
  renderLog();
 }
 function zombieHtml(){
  const c=state.combat,z=c?.zombie;
- if(!z)return`<div class="zombieBody"><div class="zombieName" style="position:static">ยังไม่มีซอมบี้</div><div class="zability">แอดมินเลือกซอมบี้แล้วกด “เรียกซอมบี้”</div></div>`;
+ if(!z)return`<div class="zombieBody"><div class="zombieName" style="position:static">ยังไม่มีซอมบี้</div><div class="zability">เมื่อแอดมินเรียกซอมบี้ ทุกคนจะเห็นรูปและสถานะพร้อมกัน</div></div>`;
  const pct=Math.max(0,Math.min(100,z.hp/z.maxHp*100));
- return `<div id="zombieVisual" class="zombieVisual" style="background-image:url('${z.art||""}')"><div class="zombieName">${z.name}</div></div><div class="zombieBody"><div class="zhpHead"><span>❤️ HP</span><span>${z.hp}/${z.maxHp}</span></div><div class="zhp"><i style="width:${pct}%"></i></div><div class="zmeta"><span>⚔ ATK ${z.atk}</span><span>Phase ${z.phase}</span>${c?.turnAtk?`<span>ATK เทิร์นนี้ ${c.turnAtk}</span>`:""}${c?.ignoreDef?`<span>ไม่สน DEF</span>`:""}</div><div class="zability">${z.ability}</div></div>`;
+ const opener=c?.openerUid?state.players?.[c.openerUid]:null;
+ const targetName=opener?.name||"ยังไม่กำหนด";
+ return `<div class="zombieVisual" style="background-image:url('${z.art||""}')"><div class="zombieName">${z.name}</div></div><div class="zombieBody"><div class="zhpHead"><span>❤️ HP</span><span>${z.hp}/${z.maxHp}</span></div><div class="zhp"><i style="width:${pct}%"></i></div><div class="zmeta"><span>⚔ ATK ${z.atk}</span><span>Phase ${z.phase}</span><span>🎯 เป้าหมายหลัก: ${targetName}</span>${c?.turnAtk?`<span>ATK เทิร์นนี้ ${c.turnAtk}</span>`:""}${c?.ignoreDef?`<span>ไม่สน DEF</span>`:""}</div><div class="zability"><b>สกิล:</b> ${z.ability}</div></div>`;
 }
 function renderAdmin(){
  if(!isAdmin())return;
@@ -263,16 +282,31 @@ function renderLog(){$('logList').innerHTML=(state.log||[]).map(x=>`<div class="
 function renderRestAdmin(){
  if(!isAdmin())return;
  const r=state.rest;
- if(!r){$('restAdminBox').innerHTML='ยังไม่มีคำขอพัก';return}
+ if(!r){
+   $('restAdminBox').innerHTML=`ยังไม่มีคำขอพัก<br><span class="smallNote">พักได้ไม่จำกัดครั้ง กดปุ่ม “พักผ่อน” ด้านบนเมื่อพร้อม</span>`;
+   return
+ }
  const ps=players();
- const votes=ps.map(p=>{const v=r.votes?.[p.uid];return`<span class="restVote ${v===true?'yes':v===false?'no':''}">${p.name}: ${v===true?'ใช่':v===false?'ยังไม่':"รอ"}</span>`}).join("");
- const allYes=ps.length&&ps.every(p=>r.votes?.[p.uid]===true);
- $('restAdminBox').innerHTML=`<b>สถานะพัก</b><div class="restVotes">${votes}</div><div class="adminRow" style="margin-top:6px">${allYes?`<button class="btn green" onclick="window.adminDreamRoll()">🎲 ทอยความฝัน</button>`:""}<button class="btn danger" onclick="window.cancelRest()">ยกเลิกพัก</button></div>`;
+ const votes=ps.map(p=>{
+   const v=r.votes?.[p.uid]||'pending';
+   return`<span class="restVote ${v==='yes'?'yes':v==='no'?'no':''}">${p.name}: ${v==='yes'?'ใช่':v==='no'?'ยังไม่':'รอ'}</span>`
+ }).join("");
+ const allYes=ps.length&&ps.every(p=>(r.votes?.[p.uid]||'pending')==='yes');
+ $('restAdminBox').innerHTML=`<b>พักครั้งที่ ${r.cycle||1}</b><div class="restVotes">${votes}</div>${allYes?`<div class="smallNote" style="color:#9de8ad;margin-top:6px">✓ ทุกคนยืนยันแล้ว — หน้าทอยความฝันจะเด้งขึ้นอัตโนมัติ</div>`:""}<div class="adminRow" style="margin-top:6px"><button class="btn danger" onclick="window.cancelRest()">ยกเลิกพัก</button></div>`;
 }
 function renderRestPrompt(){
  const r=state?.rest,p=me();
- const should=!!(r&&p&&r.phase==='confirm'&&r.votes?.[uid]===null);
+ const vote=r?.votes?.[uid]||'pending';
+ const should=!!(r&&p&&r.phase==='confirm'&&vote==='pending');
  $('restConfirmModal').classList.toggle('hidden',!should);
+
+ const ps=players();
+ const allYes=!!(r&&ps.length&&ps.every(x=>(r.votes?.[x.uid]||'pending')==='yes'));
+ const adminDream=!!(isAdmin()&&r?.phase==='confirm'&&allYes);
+ $('dreamRollModal').classList.toggle('hidden',!adminDream);
+ if(adminDream){
+   $('dreamDiceGrid').innerHTML=[1,2,3,4,5,6].map(n=>`<button class="dieBtn" onclick="window.adminDreamRoll(${n})">${n}</button>`).join("");
+ }
 }
 function showError(prefix,e){console.error(e);$('connStatus').textContent=`${prefix}: ${e?.code||e?.message||e}`;$('connStatus').className='status err';setSync(false,'ERROR')}
 
@@ -293,7 +327,7 @@ function playDice(evt){
 }
 function playHit(evt){
  if(!evt?.id||evt.id===seenHit)return;seenHit=evt.id;
- setTimeout(()=>{const z=$('zombieVisual');if(!z)return;z.classList.remove('hit');void z.offsetWidth;z.classList.add('hit');setTimeout(()=>z.classList.remove('hit'),520)},30);
+ setTimeout(()=>{const zs=[...document.querySelectorAll('.zombieVisual')];if(!zs.length)return;zs.forEach(z=>{z.classList.remove('hit');void z.offsetWidth;z.classList.add('hit');setTimeout(()=>z.classList.remove('hit'),520)})},30);
 }
 function livingOrder(s){return Object.values(s.players||{}).sort((a,b)=>a.joinOrder-b.joinOrder).filter(p=>!p.dead&&p.hp>0&&p.infection<3).map(p=>p.uid)}
 function nextLivingIndex(s,c,start){
@@ -471,11 +505,47 @@ window.adminZombieAttack=async function(roll){
  })
 };
 
+$('randomDreamBtn').onclick=()=>window.adminDreamRoll(Math.floor(Math.random()*6)+1);
 $('randomAbilityBtn').onclick=()=>window.adminAbility(Math.floor(Math.random()*6)+1);
 $('randomAttackBtn').onclick=()=>window.adminZombieAttack(Math.floor(Math.random()*6)+1);
-$('spawnBtn').onclick=async()=>{
- if(!isAdmin())return;const z=zby($('zombieSelect').value);if(!z)return;
- await txn(s=>{Object.values(s.players).forEach(clearFight);const order=livingOrder(s);s.combat={active:true,phase:'players',order,playerIndex:0,targetIndex:0,roundDamage:0,lastRoundDamage:0,roundByPlayer:{},lastRoundByPlayer:{},lastAbilityRoll:null,turnAtk:null,ignoreDef:false,zombie:{...z,maxHp:z.hp}};logPush(s,`เจอ ${z.name} • ทุกคนเห็นซอมบี้พร้อมกัน`)})
+$('spawnBtn').onclick=()=>{
+ if(!isAdmin())return;
+ const z=zby($('zombieSelect').value);if(!z)return;
+ const ps=players().filter(p=>!p.dead&&p.hp>0&&p.infection<3);
+ if(!ps.length){alert("ไม่มีผู้เล่นที่ยังมีชีวิต");return}
+ $('spawnTargetList').innerHTML=ps.map(p=>`<button class="btn" style="width:100%;margin-bottom:6px" onclick="window.confirmSpawnZombie('${z.id}','${p.uid}')">${p.name} • ${cby(p.characterId)?.name||''}</button>`).join("");
+ $('spawnTargetModal').classList.remove('hidden');
+};
+$('cancelSpawnTargetBtn').onclick=()=>$('spawnTargetModal').classList.add('hidden');
+
+window.confirmSpawnZombie=async function(zid,openerUid){
+ if(!isAdmin())return;
+ const z=zby(zid);if(!z)return;
+ $('spawnTargetModal').classList.add('hidden');
+ await txn(s=>{
+   Object.values(s.players).forEach(clearFight);
+   const order=livingOrder(s);
+   let targetIndex=Math.max(0,order.indexOf(openerUid));
+   if(targetIndex<0)targetIndex=0;
+   s.combat={
+     active:true,
+     phase:'players',
+     order,
+     playerIndex:0,
+     targetIndex,
+     openerUid,
+     roundDamage:0,
+     lastRoundDamage:0,
+     roundByPlayer:{},
+     lastRoundByPlayer:{},
+     lastAbilityRoll:null,
+     turnAtk:null,
+     ignoreDef:false,
+     zombie:{...z,maxHp:z.hp}
+   };
+   const opener=s.players[openerUid];
+   logPush(s,`${opener?.name||'ผู้เล่น'} เปิดเจอ ${z.name} • เป้าหมายหลักของซอมบี้คือ ${opener?.name||'?'}`)
+ })
 };
 $('endFightBtn').onclick=async()=>{if(!isAdmin())return;await txn(s=>{Object.values(s.players).forEach(clearFight);s.combat=null;logPush(s,"แอดมินจบการต่อสู้")})};
 
@@ -484,23 +554,61 @@ $('keyPlusBtn').onclick=async()=>{if(isAdmin())await txn(s=>{s.keys=(s.keys||0)+
 $('keyMinusBtn').onclick=async()=>{if(isAdmin())await txn(s=>{s.keys=Math.max(0,(s.keys||0)-1);logPush(s,"แอดมินลดกุญแจ -1")})};
 $('nextFloorBtn').onclick=async()=>{if(!isAdmin())return;await txn(s=>{if((s.keys||0)<1||s.floor<=1)return;s.keys-=1;s.floor-=1;Object.values(s.players).forEach(p=>{clearTempTurn(p);clearFight(p);p.phase2Choice=p.phase2Choice||""});s.combat=null;s.turnNo=(s.turnNo||1)+1;logPush(s,`ใช้กุญแจ 1 ดอก → ทุกคนลงชั้น ${s.floor}${s.floor===5?" • PHASE 2":""}`)})};
 
-$('restBtn').onclick=async()=>{if(!isAdmin()||state.rest)return;await txn(s=>{const votes={};Object.values(s.players).forEach(p=>votes[p.uid]=null);s.rest={phase:'confirm',votes,requestedAt:Date.now()};logPush(s,"แอดมินขอพักผ่อน • รอทุกคนยืนยัน")})};
-$('restYesBtn').onclick=()=>respondRest(true);
-$('restNoBtn').onclick=()=>respondRest(false);
-async function respondRest(v){if(!me()||!state.rest)return;await txn(s=>{if(!s.rest)return;s.rest.votes[uid]=v;logPush(s,`${s.players[uid].name} ${v?"ยืนยันนอน":"ยังไม่นอน"}`)})}
-window.cancelRest=async()=>{if(isAdmin())await txn(s=>{s.rest=null;logPush(s,"ยกเลิกการพัก")})};
-window.adminDreamRoll=async function(){
- if(!isAdmin()||!state.rest)return;const roll=Math.floor(Math.random()*6)+1;
+$('restBtn').onclick=async()=>{
+ if(!isAdmin())return;
+ if(state.rest){
+   alert('ตอนนี้มีคำขอพักที่ยังไม่จบ ให้ยกเลิกหรือทอยความฝันให้เสร็จก่อน');
+   return
+ }
  await txn(s=>{
-   const ps=Object.values(s.players),allYes=ps.length&&ps.every(p=>s.rest?.votes?.[p.uid]===true);if(!allYes)return;
+   const votes={};
+   Object.values(s.players).forEach(p=>votes[p.uid]='pending');
+   s.restCycle=(s.restCycle||0)+1;
+   s.rest={phase:'confirm',cycle:s.restCycle,votes,requestedAt:Date.now()};
+   logPush(s,`แอดมินขอพักครั้งที่ ${s.restCycle} • รอทุกคนยืนยัน`)
+ })
+};
+$('restYesBtn').onclick=()=>respondRest('yes');
+$('restNoBtn').onclick=()=>respondRest('no');
+async function respondRest(v){
+ if(!me()||!state.rest)return;
+ await txn(s=>{
+   if(!s.rest)return;
+   s.rest.votes[uid]=v;
+   logPush(s,`${s.players[uid].name} ${v==='yes'?"ยืนยันนอน":"ยังไม่นอน"}`)
+ })
+}
+window.cancelRest=async()=>{
+ if(isAdmin())await txn(s=>{
+   if(!s.rest)return;
+   const cycle=s.rest.cycle||s.restCycle||1;
+   s.rest=null;
+   logPush(s,`ยกเลิกการพักครั้งที่ ${cycle}`)
+ })
+};
+window.adminDreamRoll=async function(){
+ if(!isAdmin()||!state.rest)return;
+ const roll=Math.floor(Math.random()*6)+1;
+ await txn(s=>{
+   if(!s.rest)return;
+   const ps=Object.values(s.players);
+   const allYes=ps.length&&ps.every(p=>(s.rest?.votes?.[p.uid]||'pending')==='yes');
+   if(!allYes)return;
+   const cycle=s.rest.cycle||s.restCycle||1;
    const net=roll===1?0:roll===6?3:2;
    ps.forEach(p=>{if(p.dead)return;p.en=Math.min(p.maxEn,p.en+net)});
-   const guay=ps.some(p=>p.characterId==='guaytiew'&&!p.dead);if(guay)ps.forEach(p=>{if(!p.dead)p.en=Math.min(p.maxEn,p.en+1)});
-   ps.filter(p=>p.characterId==='goon'&&!p.dead).forEach(p=>{p.hp=Math.min(p.maxHp,p.hp+1);p.baseDef+=1});
-   s.diceEvent={id:`DREAM-${Date.now()}-${Math.random()}`,actor:"ADMIN",label:"🌙 ทอยความฝัน",roll};
+   const guay=ps.some(p=>p.characterId==='guaytiew'&&!p.dead);
+   if(guay)ps.forEach(p=>{if(!p.dead)p.en=Math.min(p.maxEn,p.en+1)});
+   ps.filter(p=>p.characterId==='goon'&&!p.dead).forEach(p=>{
+     p.hp=Math.min(p.maxHp,p.hp+1);
+     p.baseDef+=1
+   });
+   s.diceEvent={id:`DREAM-${Date.now()}-${Math.random()}`,actor:"ADMIN",label:`🌙 ทอยความฝัน • พักครั้งที่ ${cycle}`,roll};
    Object.values(s.players).forEach(clearTempTurn);
-   s.turnNo=(s.turnNo||1)+1;s.rest=null;
-   logPush(s,`พักสำเร็จ • ทอย ${roll} → ${roll===1?"ฝันร้าย EN +0":roll===6?"ฝันดีมาก EN +3":"ฝันดี EN +2"}${guay?" • ก๋วยเตี๋ยวทีม EN +1":""}`)
+   s.turnNo=(s.turnNo||1)+1;
+   s.lastRest={cycle,roll,time:Date.now()};
+   s.rest=null;
+   logPush(s,`พักครั้งที่ ${cycle} สำเร็จ • ทอย ${roll} → ${roll===1?"ฝันร้าย EN +0":roll===6?"ฝันดีมาก EN +3":"ฝันดี EN +2"}${guay?" • ก๋วยเตี๋ยวทีม EN +1":""}`)
  })
 };
 
@@ -508,7 +616,7 @@ $('startBtn').onclick=async()=>{if(!isAdmin())return;await txn(s=>{const ps=Obje
 
 async function createRoom(){
  const name=cleanName($('nameInput').value);if(!name)throw new Error("กรุณาใส่ชื่อ");
- const code=makeCode(),s={version:"AP9-ADMIN-V2",hostUid:uid,adminName:name,started:false,floor:9,keys:0,turnNo:1,players:{},combat:null,rest:null,diceEvent:null,hitEvent:null,log:[],createdAt:Date.now()};
+ const code=makeCode(),s={version:"AP9-ADMIN-V2",hostUid:uid,adminName:name,started:false,floor:9,keys:0,turnNo:1,restCycle:0,players:{},combat:null,rest:null,diceEvent:null,hitEvent:null,log:[],createdAt:Date.now()};
  logPush(s,`${name} สร้างห้องในฐานะแอดมิน`);
  await setDoc(roomRef(code),s);await enterRoom(code);
 }
