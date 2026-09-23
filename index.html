@@ -61,6 +61,107 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 .playerActions .btn.actionRoll{background:#2b230c;border-color:#806822}
 .playerActions .btn.actionFree{background:#171717;border-color:#4a4a4a}
 
+
+/* v2.5 admin full-status editor + large player actions */
+.playerActions.playerFourRows{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:7px;
+  margin-top:9px;
+}
+.playerActions.playerFourRows .btn{
+  width:100%;
+  min-height:52px;
+  font-size:14px;
+  padding:10px 12px;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:9px;
+  border-radius:10px;
+}
+.playerActions.playerFourRows .btn b{font-size:15px}
+.playerActions.playerFourRows .btn small{
+  display:block;
+  opacity:.72;
+  font-size:9px;
+  font-weight:700;
+  margin-left:auto;
+}
+.adminPlayers{display:grid;gap:8px}
+.adminPlayerCard{
+  border:1px solid #373737;
+  border-radius:10px;
+  background:#0c0c0c;
+  padding:8px;
+}
+.adminPlayerHead{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:7px;
+}
+.adminPlayerHead .miniAvatar{
+  width:36px;height:36px;border-radius:8px;
+  background:center/cover no-repeat;
+  border:1px solid #444;
+  flex:0 0 auto;
+}
+.adminPlayerName{font-size:12px;font-weight:1000}
+.adminPlayerSummary{font-size:9px;color:#aaa}
+.adminStatGroup{
+  border-top:1px solid #262626;
+  padding-top:6px;
+  margin-top:6px;
+}
+.adminStatGroupTitle{
+  font-size:9px;
+  color:#c7bfb5;
+  font-weight:1000;
+  margin-bottom:5px;
+}
+.adminStatGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+}
+.adminStatCtl{
+  border:1px solid #303030;
+  border-radius:8px;
+  background:#111;
+  padding:5px;
+}
+.adminStatCtl .label{
+  display:flex;
+  justify-content:space-between;
+  gap:5px;
+  font-size:9px;
+  font-weight:900;
+  margin-bottom:4px;
+}
+.adminStatCtl .ctlBtns{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+}
+.adminStatCtl .btn{
+  font-size:10px;
+  padding:5px 4px;
+  min-width:0;
+}
+.adminWideBtns{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+  margin-top:6px;
+}
+.adminWideBtns .btn{font-size:10px;padding:6px}
+@media(max-width:500px){
+  .adminStatGrid{grid-template-columns:1fr}
+  .adminWideBtns{grid-template-columns:1fr}
+}
+
 @media(max-width:1050px){.layout{grid-template-columns:1fr}.adminPanel{position:static;max-height:none}}@media(max-width:680px){.screen{padding:8px}.diag{grid-template-columns:1fr}.roster{grid-template-columns:repeat(2,minmax(0,1fr))}.playerGrid{grid-template-columns:1fr}.field{min-width:100%}.zombieVisual{height:170px}}
 </style>
 </head>
@@ -127,7 +228,9 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 
    <div class="adminSec"><h3>Attack Roll ซอมบี้</h3><div id="attackDice" class="diceGrid"></div><button class="btn danger" id="randomAttackBtn" style="width:100%;margin-top:5px">สุ่มโจมตี</button><div class="smallNote">1 พลาด • 2–4 เป้าหมายหลัก • 5 คนขวา • 6 คนซ้าย + x2<br>แอดมินเลือกหน้าเต๋าอย่างเดียว ระบบคำนวณ HP/DEF/ติดเชื้อให้เอง</div></div>
 
-   <div class="adminSec"><h3>กุญแจ / ชั้น</h3><div class="adminRow"><button class="btn" id="keyMinusBtn">🔑 -1</button><button class="btn" id="keyPlusBtn">🔑 +1</button></div><div class="smallNote">ลงชั้นถัดไปต้องใช้กุญแจ 1 ดอก</div></div>
+   <div class="adminSec"><h3>สถานะผู้เล่น — แอดมินควบคุมทั้งหมด</h3><div id="adminPlayers" class="adminPlayers"></div></div>
+
+<div class="adminSec"><h3>กุญแจ / ชั้น</h3><div class="adminRow"><button class="btn" id="keyMinusBtn">🔑 -1</button><button class="btn" id="keyPlusBtn">🔑 +1</button></div><div class="smallNote">ลงชั้นถัดไปต้องใช้กุญแจ 1 ดอก</div></div>
 
    <div class="adminSec"><h3>พักผ่อน</h3><div id="restAdminBox" class="restBox">ยังไม่มีคำขอพัก</div></div>
   </aside>
@@ -299,8 +402,13 @@ function playerCard(p){
    <div class="skill unlock"><div class="skillTitle">UNLOCK ${p.unlocked?'✅':'🔒'}</div><div class="skillText">${c.unlock}</div><div class="skillActions">${skillButton(p,'unlock','ใช้ Unlock')}</div></div>
   </div>
 
-  <div class="playerActions">
-   ${own?`<button class="btn actionSearch" onclick="window.searchAction()">🔎 หาของ</button><button class="btn actionEnergy" onclick="window.playerAttack('energy')">⚔️ โจมตีใช้ EN</button><button class="btn actionRoll" onclick="window.playerAttack('roll')">🎲 โจมตีโดยทอย</button><button class="btn actionFree" onclick="window.rollOnly('ทอยเอง')">🎲 ทอยเอง</button>`:''}
+  <div class="playerActions playerFourRows">
+   ${own?`
+    <button class="btn actionSearch" onclick="window.searchAction()"><b>🔎 หาของ</b><small>ใช้ EN ${energyCost(p,1)}</small></button>
+    <button class="btn actionEnergy" onclick="window.playerAttack('energy')"><b>⚔️ โจมตีด้วยพลังงาน</b><small>ฮิตแน่นอน • EN ${energyCost(p,1)}</small></button>
+    <button class="btn actionRoll" onclick="window.playerAttack('roll')"><b>🎲 โจมตีโดยการทอย</b><small>4–6 ฮิต • EN ${energyCost(p,0)}</small></button>
+    <button class="btn actionFree" onclick="window.rollOnly('ทอยเอง')"><b>🎲 ทอยเอง</b><small>ไม่มีผลกับเกม</small></button>
+   `:''}
   </div>
  </article>`;
 }
@@ -354,12 +462,66 @@ function zombieHtml(){
 function renderAdmin(){
  if(!isAdmin())return;
  $('zombieStage').innerHTML=zombieHtml();
+ renderAdminPlayers();
  $('zombieSelect').innerHTML=ZOMBIES.map(z=>`<option value="${z.id}">P${z.phase} • ${z.name} • HP ${z.hp} / ATK ${z.atk}</option>`).join("");
  const faces=[1,2,3,4,5,6];
  $('abilityDice').innerHTML=faces.map(n=>`<button class="dieBtn" onclick="window.adminAbility(${n})">${n}</button>`).join("");
  $('attackDice').innerHTML=faces.map(n=>`<button class="dieBtn" onclick="window.adminZombieAttack(${n})">${n}</button>`).join("");
  renderRestAdmin();
 }
+
+function adminCtl(tuid,key,label,val){
+ return `<div class="adminStatCtl"><div class="label"><span>${label}</span><span>${val}</span></div><div class="ctlBtns"><button class="btn danger" onclick="window.adminAdjust('${tuid}','${key}',-1)">−1</button><button class="btn green" onclick="window.adminAdjust('${tuid}','${key}',1)">+1</button></div></div>`
+}
+function renderAdminPlayers(){
+ if(!isAdmin())return;
+ const ps=players();
+ $('adminPlayers').innerHTML=ps.length?ps.map(p=>{
+   const c=cby(p.characterId);
+   return `<div class="adminPlayerCard">
+    <div class="adminPlayerHead">
+      <div class="miniAvatar" style="background-image:url('${c?.img||""}')"></div>
+      <div><div class="adminPlayerName">${p.name} • ${c?.name||"?"}</div>
+      <div class="adminPlayerSummary">HP ${p.hp}/${p.maxHp} • EN ${p.en}/${p.maxEn} • ATK ${atkOf(p)} • DEF ${defOf(p)} • CRIT ${p.critBuff||0} • INF ${p.infection||0}/3</div></div>
+    </div>
+
+    <div class="adminStatGroup">
+      <div class="adminStatGroupTitle">พื้นฐาน</div>
+      <div class="adminStatGrid">
+        ${adminCtl(p.uid,'hp','❤️ HP',`${p.hp}/${p.maxHp}`)}
+        ${adminCtl(p.uid,'en','⚡ EN',`${p.en}/${p.maxEn}`)}
+        ${adminCtl(p.uid,'maxHp','❤️ Max HP',p.maxHp)}
+        ${adminCtl(p.uid,'maxEn','⚡ Max EN',p.maxEn)}
+        ${adminCtl(p.uid,'baseAtk','⚔️ ATK ต้น',p.baseAtk||0)}
+        ${adminCtl(p.uid,'baseDef','🛡️ DEF ต้น',p.baseDef||0)}
+      </div>
+    </div>
+
+    <div class="adminStatGroup">
+      <div class="adminStatGroupTitle">บัฟ / เอฟเฟก</div>
+      <div class="adminStatGrid">
+        ${adminCtl(p.uid,'damageBuff','💥 DMG Buff',p.damageBuff||0)}
+        ${adminCtl(p.uid,'defBuff','🛡️ DEF Buff',p.defBuff||0)}
+        ${adminCtl(p.uid,'critBuff','🎯 CRIT',p.critBuff||0)}
+        ${adminCtl(p.uid,'shield','🛡️ Shield',p.shield||0)}
+        ${adminCtl(p.uid,'infection','☣️ Infection',`${p.infection||0}/3`)}
+      </div>
+    </div>
+
+    <div class="adminWideBtns">
+      <button class="btn gold" onclick="window.adminToggleUnlock('${p.uid}')">${p.unlocked?'🔒 ล็อก Unlock Skill':'🔓 ปลด Unlock Skill'}</button>
+      <button class="btn gold" onclick="window.adminToggleGuaranteedCrit('${p.uid}')">${p.guaranteedCrit?'ยกเลิก CRIT 100%':'🔥 CRIT ครั้งถัดไป 100%'}</button>
+      <button class="btn" onclick="window.adminClearTurnBuffs('${p.uid}')">🧹 ล้างบัฟ 1 เทิร์น</button>
+      <button class="btn" onclick="window.adminClearFightBuffs('${p.uid}')">🧹 ล้างบัฟ 1 ไฟท์</button>
+      <button class="btn" onclick="window.adminClearEffects('${p.uid}')">✦ ล้างข้อความเอฟเฟก</button>
+      <button class="btn green" onclick="window.adminRevive('${p.uid}')">✚ ชุบชีวิต HP 1</button>
+      <button class="btn danger" onclick="window.adminKill('${p.uid}')">☠ ทำให้ตาย</button>
+      <button class="btn blue" onclick="window.adminFullRestore('${p.uid}')">✨ เติม HP/EN เต็ม</button>
+    </div>
+   </div>`
+ }).join(""):"<div class='smallNote'>ยังไม่มีผู้เล่น</div>";
+}
+
 function renderLog(){$('logList').innerHTML=(state.log||[]).map(x=>`<div class="logLine">${x}</div>`).join("")}
 function renderRestAdmin(){
  if(!isAdmin())return;
@@ -462,6 +624,121 @@ window.searchAction=async function(){
    logPush(s,`${q.name} หาของ • ใช้ EN ${cost}`);
   })
  }catch(e){showError("หาของไม่สำเร็จ",e)}
+};
+
+
+window.adminAdjust=async function(tuid,key,d){
+ if(!isAdmin())return;
+ try{
+  await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+
+   if(key==='hp'){
+     p.hp=Math.max(0,Math.min(p.maxHp,(p.hp||0)+d));
+   }else if(key==='en'){
+     p.en=Math.max(0,Math.min(p.maxEn,(p.en||0)+d));
+   }else if(key==='maxHp'){
+     p.maxHp=Math.max(1,(p.maxHp||1)+d);
+     p.hp=Math.min(p.hp,p.maxHp);
+   }else if(key==='maxEn'){
+     p.maxEn=Math.max(0,(p.maxEn||0)+d);
+     p.en=Math.min(p.en,p.maxEn);
+   }else if(key==='infection'){
+     p.infection=Math.max(0,Math.min(3,(p.infection||0)+d));
+   }else{
+     p[key]=Math.max(0,(p[key]||0)+d);
+   }
+
+   normalize(p);
+   if(key==='hp'&&p.hp>0&&p.infection<3&&p.dead){
+     // HP alone does not auto-revive; admin uses revive button deliberately.
+   }
+   const sfx=(key==='hp'&&d>0)?'heal':(key==='infection'&&d>0)?'infect':(key==='damageBuff'&&d>0)?'buff':(key==='critBuff'&&d>0)?'crit':'buff';
+   s.audioEvent={id:`ADMIN-${key}-${Date.now()}-${Math.random()}`,kind:sfx};
+   logPush(s,`ADMIN ปรับ ${p.name}: ${key} ${d>0?'+':''}${d}`);
+  })
+ }catch(e){showError("แอดมินปรับสถานะไม่สำเร็จ",e)}
+};
+
+window.adminToggleUnlock=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   p.unlocked=!p.unlocked;
+   logPush(s,`ADMIN ${p.unlocked?'ปลดล็อก':'ล็อก'} Unlock Skill ของ ${p.name}`);
+ })
+};
+
+window.adminToggleGuaranteedCrit=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   p.guaranteedCrit=!p.guaranteedCrit;
+   s.audioEvent={id:`ADMIN-CRIT-${Date.now()}-${Math.random()}`,kind:'crit'};
+   logPush(s,`ADMIN ${p.guaranteedCrit?'เปิด':'ปิด'} CRIT 100% ครั้งถัดไปของ ${p.name}`);
+ })
+};
+
+window.adminClearTurnBuffs=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   clearTempTurn(p);
+   logPush(s,`ADMIN ล้างบัฟ 1 เทิร์นของ ${p.name}`);
+ })
+};
+
+window.adminClearFightBuffs=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   clearFight(p);
+   logPush(s,`ADMIN ล้างบัฟ 1 ไฟท์ของ ${p.name}`);
+ })
+};
+
+window.adminClearEffects=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   p.effects=[];
+   logPush(s,`ADMIN ล้างข้อความเอฟเฟกของ ${p.name}`);
+ })
+};
+
+window.adminRevive=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   if((p.infection||0)>=3)p.infection=2;
+   p.dead=false;
+   p.hp=Math.max(1,Math.min(p.maxHp,1));
+   p.effects=(p.effects||[]).filter(e=>!e.includes('เสียชีวิต'));
+   s.audioEvent={id:`ADMIN-REVIVE-${Date.now()}-${Math.random()}`,kind:'heal'};
+   logPush(s,`ADMIN ชุบชีวิต ${p.name} ที่ HP 1`);
+ })
+};
+
+window.adminKill=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   p.dead=true;p.hp=0;
+   if(!p.effects.includes("☠ เสียชีวิต"))p.effects.push("☠ เสียชีวิต");
+   logPush(s,`ADMIN ทำให้ ${p.name} เสียชีวิต`);
+ })
+};
+
+window.adminFullRestore=async function(tuid){
+ if(!isAdmin())return;
+ await txn(s=>{
+   const p=s.players[tuid];if(!p)return;
+   if(!p.dead){
+     p.hp=p.maxHp;p.en=p.maxEn;
+     s.audioEvent={id:`ADMIN-FULL-${Date.now()}-${Math.random()}`,kind:'heal'};
+     logPush(s,`ADMIN เติม HP/EN ของ ${p.name} เต็ม`);
+   }
+ })
 };
 
 window.adjustPlayer=async function(tuid,key,d){
