@@ -32,6 +32,35 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 .log{margin-top:9px;padding:9px}.log h3{margin:0 0 5px}.logList{max-height:150px;overflow:auto;font-size:10px;color:#bdb4aa}.logLine{padding:3px 0;border-top:1px solid #222}
 .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.78);display:grid;place-items:center;padding:16px}.modalBox{width:min(520px,100%);padding:14px}.modalBox h3{margin:0 0 6px}.modalBox p{color:#d0c8be;font-size:12px;line-height:1.45}.modalActions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
 .diceOverlay{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.72);display:grid;place-items:center;backdrop-filter:blur(2px)}.diceWrap{text-align:center}.diceActor{font-size:13px;color:#cfc6bc;margin-bottom:4px}.diceLabel{font-size:22px;font-weight:1000;margin-bottom:13px}.diceCube{width:112px;height:112px;border-radius:22px;border:3px solid #e7d8b9;background:linear-gradient(145deg,#f6f0e6,#cdc4b6);color:#111;display:grid;place-items:center;font-size:67px;font-weight:1000;box-shadow:0 18px 60px rgba(0,0,0,.65)}.diceCube.rolling{animation:diceRoll .75s cubic-bezier(.2,.8,.2,1) infinite}.diceResult{margin-top:11px;color:#ffd86c;font-size:20px;font-weight:1000}@keyframes diceRoll{0%{transform:rotate(0deg) scale(.92) translateY(0)}25%{transform:rotate(100deg) scale(1.08) translateY(-17px)}50%{transform:rotate(195deg) scale(.95) translateY(3px)}75%{transform:rotate(290deg) scale(1.05) translateY(-9px)}100%{transform:rotate(360deg) scale(.92) translateY(0)}}
+
+/* v2.4 visual/sound/action refinements */
+.powerSplit{margin-top:6px;border:1px solid #40302d;border-radius:8px;background:#130d0c;padding:7px}
+.powerHead{display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:1000}
+.powerLegend{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;font-size:9px;color:#bdb4aa}
+.legendDot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+.legendBase{background:#c63434}.legendBuff{background:#e5b73e}
+.splitBar{height:11px;border:1px solid #5b332d;border-radius:6px;background:#21100e;overflow:hidden;display:flex;margin-top:5px}
+.splitBase{height:100%;background:linear-gradient(90deg,#8b1f1f,#dc3d35)}
+.splitBuff{height:100%;background:linear-gradient(90deg,#b88317,#f0c84a)}
+.splitBuff.active{box-shadow:0 0 12px rgba(240,200,74,.75)}
+.zAtkBox{margin-top:8px;border:1px solid #49302a;border-radius:8px;background:#150e0c;padding:7px}
+.zAtkBox.buffed{border-color:#8a6d20;background:#211a09;box-shadow:0 0 0 1px rgba(229,183,62,.12)}
+.effectIcon{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;margin-right:4px;background:#202020;border:1px solid #454545;font-size:11px;vertical-align:-4px}
+.tag.hpfx .effectIcon{background:#2a1010;border-color:#7e2c2c}
+.tag.dmgfx .effectIcon{background:#34280a;border-color:#8a6d20}
+.tag.critfx .effectIcon{background:#2b2209;border-color:#8a6d20}
+.tag.infectfx .effectIcon{background:#281424;border-color:#74366c}
+.tag.deffx .effectIcon{background:#111f2c;border-color:#355b79}
+.tag.turnfx .effectIcon{background:#1e1a0e;border-color:#76602a}
+.selfBanner{display:flex;align-items:center;gap:7px;border:1px solid #5c4a1c;background:#241c08;border-radius:9px;padding:7px 8px;margin-bottom:8px}
+.selfBanner .miniAvatar{width:38px;height:38px;border-radius:8px;background:center/cover no-repeat;border:1px solid #5a4d31}
+.selfBanner b{color:#ffda6d}
+.playerActions{justify-content:flex-start}
+.playerActions .btn.actionSearch{background:#10283e;border-color:#366b98}
+.playerActions .btn.actionEnergy{background:#7f1212;border-color:#d84747}
+.playerActions .btn.actionRoll{background:#2b230c;border-color:#806822}
+.playerActions .btn.actionFree{background:#171717;border-color:#4a4a4a}
+
 @media(max-width:1050px){.layout{grid-template-columns:1fr}.adminPanel{position:static;max-height:none}}@media(max-width:680px){.screen{padding:8px}.diag{grid-template-columns:1fr}.roster{grid-template-columns:repeat(2,minmax(0,1fr))}.playerGrid{grid-template-columns:1fr}.field{min-width:100%}.zombieVisual{height:170px}}
 </style>
 </head>
@@ -81,6 +110,7 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
  <div class="layout">
   <section class="mainPanel card">
    <div id="turnBanner" class="turnBanner"></div>
+   <div id="selfBanner" class="selfBanner hidden"></div>
    <div id="sharedZombieStage" class="zombieStage hidden"></div>
    <div class="damageTotal"><span>💥 ดาเมจรวมของทีมรอบล่าสุด</span><b id="totalDamage">0</b></div>
    <div id="playerGrid" class="playerGrid"></div>
@@ -143,6 +173,40 @@ const $=id=>document.getElementById(id);
 const roomRef=code=>doc(db,"rooms",code);
 let uid="",room="",state=null,unsub=null,seenDice="",seenHit="",diceQueue=Promise.resolve();
 
+let audioCtx=null,seenAudio="";
+function ensureAudio(){
+ if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
+}
+document.addEventListener('pointerdown',ensureAudio,{once:true});
+function tone(freq=440,dur=.12,type='sine',gain=.08,delay=0){
+ ensureAudio();if(!audioCtx)return;
+ const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=audioCtx.currentTime+delay;
+ o.type=type;o.frequency.setValueAtTime(freq,t);
+ g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+ o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+dur+.02)
+}
+function noise(dur=.12,gain=.05,delay=0){
+ ensureAudio();if(!audioCtx)return;
+ const len=Math.max(1,Math.floor(audioCtx.sampleRate*dur)),buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate),d=buf.getChannelData(0);
+ for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+ const s=audioCtx.createBufferSource(),g=audioCtx.createGain(),t=audioCtx.currentTime+delay;s.buffer=buf;g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(g);g.connect(audioCtx.destination);s.start(t)
+}
+function playSfx(kind){
+ try{
+  if(kind==='dice'){noise(.08,.035);tone(260,.08,'square',.035,0);tone(330,.08,'square',.03,.09);tone(420,.09,'square',.03,.18)}
+  if(kind==='spawn'){tone(120,.25,'sawtooth',.07);tone(95,.35,'sawtooth',.06,.13);noise(.25,.035)}
+  if(kind==='heal'){tone(520,.12,'sine',.05);tone(660,.14,'sine',.05,.1);tone(820,.18,'sine',.04,.2)}
+  if(kind==='buff'){tone(330,.10,'triangle',.05);tone(440,.12,'triangle',.05,.09);tone(590,.16,'triangle',.05,.18)}
+  if(kind==='crit'){tone(700,.09,'square',.05);tone(980,.18,'square',.05,.08)}
+  if(kind==='infect'){tone(170,.18,'sawtooth',.05);tone(140,.22,'sawtooth',.04,.12)}
+  if(kind==='attack'){noise(.11,.055);tone(150,.11,'square',.05);tone(90,.10,'square',.04,.08)}
+  if(kind==='search'){tone(280,.07,'triangle',.035);tone(360,.08,'triangle',.035,.07)}
+ }catch{}
+}
+function playAudioEvent(evt){if(!evt?.id||evt.id===seenAudio)return;seenAudio=evt.id;playSfx(evt.kind)}
+
+
 const cleanName=s=>(s||"").trim().slice(0,18);
 const cleanRoom=s=>(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6);
 const makeCode=()=>{const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s};
@@ -165,7 +229,7 @@ function setScreens(){const inRoom=!!room,started=!!state?.started;$('connectScr
 async function txn(fn){return runTransaction(db,async tx=>{const ref=roomRef(room),sn=await tx.get(ref);if(!sn.exists())throw new Error("room-not-found");const s=sn.data();fn(s);s.updatedAt=Date.now();tx.set(ref,s);return s})}
 async function patchPlayer(tuid,patch){const u={};for(const[k,v]of Object.entries(patch))u[`players.${tuid}.${k}`]=v;return updateDoc(roomRef(room),u)}
 
-function render(){setScreens();if(!room||!state)return;if(state.diceEvent)playDice(state.diceEvent);if(state.hitEvent)playHit(state.hitEvent);if(!state.started)renderLobby();else renderGame();renderRestPrompt()}
+function render(){setScreens();if(!room||!state)return;if(state.diceEvent)playDice(state.diceEvent);if(state.hitEvent)playHit(state.hitEvent);if(state.audioEvent)playAudioEvent(state.audioEvent);if(!state.started)renderLobby();else renderGame();renderRestPrompt()}
 function renderLobby(){
  $('roomCode').textContent=room;
  $('lobbyAdminText').textContent=`แอดมิน: ${state.adminName||"?"}`;
@@ -190,7 +254,18 @@ async function chooseChar(cid){
  try{await patchPlayer(uid,patch)}catch(e){showError("เลือกตัวละครไม่สำเร็จ",e)}
 }
 function barCells(cur,max,cls){return`<div class="bars ${cls}">${Array.from({length:Math.max(1,max)},(_,i)=>`<i class="${i<cur?'on':''}"></i>`).join("")}</div>`}
-function effects(p){const a=[];if(p.infection)a.push(['warn',`☣️ ติดเชื้อ ${p.infection}/3`]);if(p.infection>0)a.push(['warn','⚡ ค่า EN ทุกแอ็กชัน +1']);if(p.critBuff)a.push(['gold',`🎯 CRIT ${p.critBuff}`]);if(p.shield)a.push(['',`🛡️ โล่ ${p.shield}`]);if(p.guaranteedCrit)a.push(['gold','🔥 CRIT ครั้งถัดไป']);for(const e of p.effects||[])a.push([e.includes("☠")?'dead':'',e]);return a}
+function effects(p){
+ const a=[];
+ if(p.infection)a.push(['warn infectfx','☣',`ติดเชื้อ ${p.infection}/3`]);
+ if(p.infection>0)a.push(['warn infectfx','⚡','EN ทุกแอ็กชัน +1']);
+ if((p.damageBuff||0)>0)a.push(['good dmgfx','💥',`DMG บัฟ +${p.damageBuff}`]);
+ if((p.defBuff||0)>0)a.push(['deffx','🛡',`DEF บัฟ +${p.defBuff}`]);
+ if(p.critBuff)a.push(['gold critfx','🎯',`CRIT +${p.critBuff}`]);
+ if(p.shield)a.push(['deffx','🛡',`โล่ ${p.shield}`]);
+ if(p.guaranteedCrit)a.push(['gold critfx','🔥','CRIT ครั้งถัดไป']);
+ for(const e of p.effects||[])a.push([e.includes("☠")?'dead':'turnfx','✦',e]);
+ return a
+}
 function skillButton(p,key,label){
  if(p.uid!==uid||p.dead)return "";
  if(key==='p21'||key==='p22'){
@@ -202,7 +277,7 @@ function skillButton(p,key,label){
 }
 function playerCard(p){
  const c=cby(p.characterId);if(!c)return "";
- const own=p.uid===uid,admin=isAdmin(),atk=atkOf(p),def=defOf(p),atkPct=Math.min(100,atk/20*100);
+ const own=p.uid===uid,admin=isAdmin(),atk=atkOf(p),def=defOf(p);
  const roll=p.lastRoll?`🎲 ${p.lastRoll.roll}`:"🎲 -";
  const p2lock=!phase2();
  const choice=p.phase2Choice;
@@ -214,8 +289,8 @@ function playerCard(p){
    <div class="stat"><div class="statHead"><span>🛡️ เกราะ/DEF</span><span>${def}</span></div></div>
    <div class="stat"><div class="statHead"><span>🎯 Critical</span><span>${p.critBuff||0}</span></div></div>
   </div>
-  <div class="attackPower"><div class="attackHead"><span>⚔️ พลังโจมตี</span><span>${atk}</span></div><div class="attackBar"><i style="width:${atkPct}%"></i></div></div>
-  <div class="statusLine">${effects(p).map(x=>`<span class="tag ${x[0]}">${x[1]}</span>`).join("")||'<span class="tag good">ปกติ</span>'}</div>
+  <div class="powerSplit"><div class="powerHead"><span>⚔️ พลังโจมตี</span><span>${p.baseAtk||0}${(p.damageBuff||0)>0?` + <b style="color:#f0c84a">${p.damageBuff}</b>`:""} = ${atk}</span></div><div class="splitBar"><i class="splitBase" style="width:${Math.min(100,(p.baseAtk||0)/20*100)}%"></i><i class="splitBuff ${(p.damageBuff||0)>0?'active':''}" style="width:${Math.min(100,(p.damageBuff||0)/20*100)}%"></i></div><div class="powerLegend"><span><i class="legendDot legendBase"></i>ATK ต้น ${p.baseAtk||0}</span><span><i class="legendDot legendBuff"></i>บัฟ +${p.damageBuff||0}</span></div></div>
+  <div class="statusLine">${effects(p).map(x=>`<span class="tag ${x[0]}"><span class="effectIcon">${x[1]}</span>${x[2]}</span>`).join("")||'<span class="tag good"><span class="effectIcon">✓</span>ปกติ</span>'}</div>
 
   <div class="skillList">
    <div class="skill passive"><div class="skillTitle">PASSIVE</div><div class="skillText">${c.passive}</div>${own&&c.id==='sigma'?`<div class="skillActions">${skillButton(p,'passive','ใช้ Passive / ทอย')}</div>`:''}</div>
@@ -225,9 +300,7 @@ function playerCard(p){
   </div>
 
   <div class="playerActions">
-   ${own?`<button class="btn primary" onclick="window.playerAttack('energy')">⚔️ โจมตีฮิตแน่นอน</button><button class="btn" onclick="window.playerAttack('roll')">🎲 ทอยโจมตี</button><button class="btn blue" onclick="window.rollOnly('สกิล/เช็กทั่วไป')">🎲 ทอยเอง</button>`:''}
-   ${own||admin?`<button class="btn" onclick="window.adjustPlayer('${p.uid}','hp',-1)">HP -</button><button class="btn" onclick="window.adjustPlayer('${p.uid}','hp',1)">HP +</button><button class="btn" onclick="window.adjustPlayer('${p.uid}','en',-1)">EN -</button><button class="btn" onclick="window.adjustPlayer('${p.uid}','en',1)">EN +</button>`:''}
-   ${admin?`<button class="btn" onclick="window.adjustInfect('${p.uid}',1)">☣ +</button><button class="btn" onclick="window.adjustInfect('${p.uid}',-1)">☣ -</button><button class="btn gold" onclick="window.toggleUnlock('${p.uid}')">${p.unlocked?'ล็อกสกิล':'ปลด Unlock'}</button>`:''}
+   ${own?`<button class="btn actionSearch" onclick="window.searchAction()">🔎 หาของ</button><button class="btn actionEnergy" onclick="window.playerAttack('energy')">⚔️ โจมตีใช้ EN</button><button class="btn actionRoll" onclick="window.playerAttack('roll')">🎲 โจมตีโดยทอย</button><button class="btn actionFree" onclick="window.rollOnly('ทอยเอง')">🎲 ทอยเอง</button>`:''}
   </div>
  </article>`;
 }
@@ -257,7 +330,13 @@ function renderGame(){
  $('totalDamage').textContent=c?.lastRoundDamage??c?.roundDamage??0;
  $('sharedZombieStage').classList.toggle('hidden',!c?.active);
  if(c?.active)$('sharedZombieStage').innerHTML=zombieHtml();
- $('playerGrid').innerHTML=players().map(playerCard).join("");
+ const orderedPlayers=players().slice().sort((a,b)=>{
+   if(a.uid===uid)return -1;if(b.uid===uid)return 1;return (a.joinOrder||0)-(b.joinOrder||0)
+ });
+ $('playerGrid').innerHTML=orderedPlayers.map(playerCard).join("");
+ const self=me(),sc=self?cby(self.characterId):null;
+ $('selfBanner').classList.toggle('hidden',!self||isAdmin());
+ if(self&&!isAdmin())$('selfBanner').innerHTML=`<div class="miniAvatar" style="background-image:url('${sc?.img||""}')"></div><div><b>คุณกำลังเล่น: ${sc?.name||"?"}</b><div class="smallNote">HP ${self.hp}/${self.maxHp} • EN ${self.en}/${self.maxEn} • ATK ${atkOf(self)} • DEF ${defOf(self)}</div></div>`;
  renderAdmin();
  renderLog();
 }
@@ -267,7 +346,10 @@ function zombieHtml(){
  const pct=Math.max(0,Math.min(100,z.hp/z.maxHp*100));
  const opener=c?.openerUid?state.players?.[c.openerUid]:null;
  const targetName=opener?.name||"ยังไม่กำหนด";
- return `<div class="zombieVisual" style="background-image:url('${z.art||""}')"><div class="zombieName">${z.name}</div></div><div class="zombieBody"><div class="zhpHead"><span>❤️ HP</span><span>${z.hp}/${z.maxHp}</span></div><div class="zhp"><i style="width:${pct}%"></i></div><div class="zmeta"><span>⚔ ATK ${z.atk}</span><span>Phase ${z.phase}</span><span>🎯 เป้าหมายหลัก: ${targetName}</span>${c?.turnAtk?`<span>ATK เทิร์นนี้ ${c.turnAtk}</span>`:""}${c?.ignoreDef?`<span>ไม่สน DEF</span>`:""}</div><div class="zability"><b>สกิล:</b> ${z.ability}</div></div>`;
+ const zTotalAtk=c?.turnAtk||z.atk;
+ const zBuff=Math.max(0,zTotalAtk-z.atk);
+ const zBasePct=Math.min(100,z.atk/20*100),zBuffPct=Math.min(100,zBuff/20*100);
+ return `<div class="zombieVisual" style="background-image:url('${z.art||""}')"><div class="zombieName">${z.name}</div></div><div class="zombieBody"><div class="zhpHead"><span>❤️ HP</span><span>${z.hp}/${z.maxHp}</span></div><div class="zhp"><i style="width:${pct}%"></i></div><div class="zAtkBox ${zBuff>0?'buffed':''}"><div class="powerHead"><span>⚔️ พลังโจมตีซอมบี้</span><span>${z.atk}${zBuff>0?` + <b style="color:#f0c84a">${zBuff}</b>`:""} = ${zTotalAtk}</span></div><div class="splitBar"><i class="splitBase" style="width:${zBasePct}%"></i><i class="splitBuff ${zBuff>0?'active':''}" style="width:${zBuffPct}%"></i></div><div class="powerLegend"><span><i class="legendDot legendBase"></i>ATK ต้น ${z.atk}</span><span><i class="legendDot legendBuff"></i>บัฟ +${zBuff}</span></div></div><div class="zmeta"><span>🧟 Phase ${z.phase}</span><span>🎯 เป้าหมายหลัก: ${targetName}</span>${c?.ignoreDef?`<span>🛡️ ทะลุ DEF</span>`:""}</div><div class="zability"><b>✨ สกิล:</b> ${z.ability}</div></div>`;
 }
 function renderAdmin(){
  if(!isAdmin())return;
@@ -312,7 +394,7 @@ function showError(prefix,e){console.error(e);$('connStatus').textContent=`${pre
 
 const glyph=n=>['','⚀','⚁','⚂','⚃','⚄','⚅'][n]||String(n);
 function playDice(evt){
- if(!evt?.id||evt.id===seenDice)return;seenDice=evt.id;
+ if(!evt?.id||evt.id===seenDice)return;seenDice=evt.id;playSfx('dice');
  diceQueue=diceQueue.then(async()=>{
    $('diceOverlay').classList.remove('hidden');
    $('diceActor').textContent=evt.actor||"";
@@ -365,6 +447,22 @@ function clearFight(p){
  p.effects=(p.effects||[]).filter(e=>!e.startsWith("⚔"));
 }
 function spendEN(p,base){const cost=energyCost(p,base);if(p.en<cost)return false;p.en-=cost;return cost}
+
+
+window.searchAction=async function(){
+ const p=me();if(!p||p.dead)return;
+ try{
+  await txn(s=>{
+   const q=s.players[uid];if(!q||q.dead)return;
+   const cost=energyCost(q,1);if(q.en<cost)return;
+   q.en-=cost;
+   q.effects=q.effects||[];
+   q.effects.push("🔎 หาของ");
+   s.audioEvent={id:`SEARCH-${Date.now()}-${Math.random()}`,kind:"search"};
+   logPush(s,`${q.name} หาของ • ใช้ EN ${cost}`);
+  })
+ }catch(e){showError("หาของไม่สำเร็จ",e)}
+};
 
 window.adjustPlayer=async function(tuid,key,d){
  try{await txn(s=>{const p=s.players[tuid];if(!p)return;if(key==='hp')p.hp=Math.max(0,Math.min(p.maxHp,p.hp+d));if(key==='en')p.en=Math.max(0,Math.min(p.maxEn,p.en+d));normalize(p);logPush(s,`${p.name} ${key.toUpperCase()} ${d>0?'+':''}${d}`)})}catch(e){showError("ปรับสถานะไม่สำเร็จ",e)}
@@ -445,7 +543,7 @@ window.useSkill=async function(key){
    }else{
      generic();
    }
-   normalize(q);logPush(s,`${q.name}: ${desc}`);
+   normalize(q);let skind='buff';if(desc.includes('ฮีล')||desc.includes('HP +'))skind='heal';else if(desc.includes('CRIT'))skind='crit';s.audioEvent={id:`SKILL-${Date.now()}-${Math.random()}`,kind:skind};logPush(s,`${q.name}: ${desc}`);
   })
  }catch(e){showError("ใช้สกิลไม่สำเร็จ",e)}
 };
@@ -469,7 +567,7 @@ window.playerAttack=async function(mode){
    const dmg=hit?atkOf(q)*(crit?2:1):0;
    cc.zombie.hp=Math.max(0,cc.zombie.hp-dmg);
    cc.roundDamage=(cc.roundDamage||0)+dmg;cc.roundByPlayer=cc.roundByPlayer||{};cc.roundByPlayer[uid]=(cc.roundByPlayer[uid]||0)+dmg;
-   if(dmg>0)s.hitEvent={id:`H-${Date.now()}-${Math.random()}`,dmg,actor:q.name};
+   s.audioEvent={id:`ATTACK-${Date.now()}-${Math.random()}`,kind:'attack'};if(dmg>0)s.hitEvent={id:`H-${Date.now()}-${Math.random()}`,dmg,actor:q.name};
    logPush(s,hit?`${q.name} ทอย ${roll} → ${dmg} DMG${crit?' CRIT x2':''} • ใช้ EN ${cost}`:`${q.name} ทอย ${roll} → พลาด • ใช้ EN ${cost}`);
    if(cc.zombie.hp<=0){cc.lastRoundDamage=cc.roundDamage;cc.phase='defeated';logPush(s,`${cc.zombie.name} ถูกกำจัด • ดาเมจทีมรวม ${cc.lastRoundDamage}`);return}
    const old=cc.playerIndex||0,ni=nextLivingIndex(s,cc,old);cc.playerIndex=ni;
@@ -481,7 +579,7 @@ window.playerAttack=async function(mode){
 function abilityEffect(z,roll){let atk=z.atk,ignore=false,heal=0;if(z.type==='heal5'&&roll<=3)heal=5;if(z.type==='trainer'){atk+=roll;if(roll>=2&&roll<=4)ignore=true}if(z.type==='plus_m'&&roll===4)atk+=2;if(z.type==='plus_f'&&roll>=4)heal=10;if(z.type==='mut_trainer'){if(roll>=3&&roll<=5)atk+=4;if(roll>=4)ignore=true}return{atk,ignore,heal}}
 window.adminAbility=async function(roll){
  if(!isAdmin()||!state.combat?.active||state.combat.zombie?.hp<=0)return;
- await txn(s=>{const c=s.combat,z=c.zombie,e=abilityEffect(z,roll);if(e.heal)z.hp=Math.min(z.maxHp,z.hp+e.heal);c.lastAbilityRoll=roll;c.turnAtk=e.atk;c.ignoreDef=e.ignore;s.diceEvent={id:`ZA-${Date.now()}-${Math.random()}`,actor:z.name,label:"🎲 Ability Roll",roll};logPush(s,`${z.name} Ability ${roll}${e.heal?` • ฟื้น ${e.heal}`:""}${e.atk!==z.atk?` • ATK ${e.atk}`:""}${e.ignore?" • ไม่สน DEF":""}`)})
+ await txn(s=>{const c=s.combat,z=c.zombie,e=abilityEffect(z,roll);if(e.heal){z.hp=Math.min(z.maxHp,z.hp+e.heal);s.audioEvent={id:`ZHEAL-${Date.now()}-${Math.random()}`,kind:'heal'}}c.lastAbilityRoll=roll;c.turnAtk=e.atk;c.ignoreDef=e.ignore;s.diceEvent={id:`ZA-${Date.now()}-${Math.random()}`,actor:z.name,label:"🎲 Ability Roll",roll};logPush(s,`${z.name} Ability ${roll}${e.heal?` • ฟื้น ${e.heal}`:""}${e.atk!==z.atk?` • ATK ${e.atk}`:""}${e.ignore?" • ไม่สน DEF":""}`)})
 };
 window.adminZombieAttack=async function(roll){
  if(!isAdmin()||!state.combat?.active||state.combat.zombie?.hp<=0)return;
@@ -491,12 +589,12 @@ window.adminZombieAttack=async function(roll){
    let ti=base;if(roll===5)ti=(base+1)%o.length;if(roll===6)ti=(base-1+o.length)%o.length;
    let target=s.players[o[ti]];
    if(target?.dead){ti=base;target=s.players[o[ti]]}
-   s.diceEvent={id:`ZT-${Date.now()}-${Math.random()}`,actor:z.name,label:"🎲 Attack Roll",roll};
+   s.diceEvent={id:`ZT-${Date.now()}-${Math.random()}`,actor:z.name,label:"🎲 Attack Roll",roll};s.audioEvent={id:`ZATTACK-${Date.now()}-${Math.random()}`,kind:'attack'};
    if(roll===1||!target){logPush(s,`${z.name} ทอย ${roll} → พลาด`)}
    else{
      const e=abilityEffect(z,c.lastAbilityRoll||0),zatk=c.turnAtk||e.atk||z.atk,ignore=!!(c.ignoreDef||e.ignore),raw=zatk*(roll===6?2:1),armor=ignore?0:Math.max(0,defOf(target)+(target.shield||0)),dmg=Math.max(0,raw-armor);
      target.hp=Math.max(0,target.hp-dmg);
-     if(dmg>0&&(z.type==='infect'||z.type==='mut_infect'))target.infection=Math.min(3,(target.infection||0)+1);
+     if(dmg>0&&(z.type==='infect'||z.type==='mut_infect')){target.infection=Math.min(3,(target.infection||0)+1);s.audioEvent={id:`INFECT-${Date.now()}-${Math.random()}`,kind:'infect'}}
      if(dmg>0&&z.type==='mut_infect'){const li=(ti-1+o.length)%o.length,lp=s.players[o[li]];if(lp&&!lp.dead){lp.infection=Math.min(3,(lp.infection||0)+1);normalize(lp)}}
      normalize(target);
      logPush(s,`${z.name} ทอย ${roll} → ${target.name} รับ ${dmg} DMG${ignore?" (ไม่สน DEF)":""}${target.dead?" • ☠ เสียชีวิต":""}`);
@@ -544,7 +642,7 @@ window.confirmSpawnZombie=async function(zid,openerUid){
      zombie:{...z,maxHp:z.hp}
    };
    const opener=s.players[openerUid];
-   logPush(s,`${opener?.name||'ผู้เล่น'} เปิดเจอ ${z.name} • เป้าหมายหลักของซอมบี้คือ ${opener?.name||'?'}`)
+   s.audioEvent={id:`SPAWN-${Date.now()}-${Math.random()}`,kind:'spawn'};logPush(s,`${opener?.name||'ผู้เล่น'} เปิดเจอ ${z.name} • เป้าหมายหลักของซอมบี้คือ ${opener?.name||'?'}`)
  })
 };
 $('endFightBtn').onclick=async()=>{if(!isAdmin())return;await txn(s=>{Object.values(s.players).forEach(clearFight);s.combat=null;logPush(s,"แอดมินจบการต่อสู้")})};
@@ -603,7 +701,7 @@ window.adminDreamRoll=async function(){
      p.hp=Math.min(p.maxHp,p.hp+1);
      p.baseDef+=1
    });
-   s.diceEvent={id:`DREAM-${Date.now()}-${Math.random()}`,actor:"ADMIN",label:`🌙 ทอยความฝัน • พักครั้งที่ ${cycle}`,roll};
+   s.diceEvent={id:`DREAM-${Date.now()}-${Math.random()}`,actor:"ADMIN",label:`🌙 ทอยความฝัน • พักครั้งที่ ${cycle}`,roll};s.audioEvent={id:`REST-${Date.now()}-${Math.random()}`,kind:'heal'};
    Object.values(s.players).forEach(clearTempTurn);
    s.turnNo=(s.turnNo||1)+1;
    s.lastRest={cycle,roll,time:Date.now()};
@@ -616,7 +714,7 @@ $('startBtn').onclick=async()=>{if(!isAdmin())return;await txn(s=>{const ps=Obje
 
 async function createRoom(){
  const name=cleanName($('nameInput').value);if(!name)throw new Error("กรุณาใส่ชื่อ");
- const code=makeCode(),s={version:"AP9-ADMIN-V2",hostUid:uid,adminName:name,started:false,floor:9,keys:0,turnNo:1,restCycle:0,players:{},combat:null,rest:null,diceEvent:null,hitEvent:null,log:[],createdAt:Date.now()};
+ const code=makeCode(),s={version:"AP9-ADMIN-V2",hostUid:uid,adminName:name,started:false,floor:9,keys:0,turnNo:1,restCycle:0,players:{},combat:null,rest:null,diceEvent:null,hitEvent:null,audioEvent:null,log:[],createdAt:Date.now()};
  logPush(s,`${name} สร้างห้องในฐานะแอดมิน`);
  await setDoc(roomRef(code),s);await enterRoom(code);
 }
