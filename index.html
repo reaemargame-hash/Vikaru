@@ -36,6 +36,24 @@ button,select{font:inherit;color:inherit}.hidden{display:none!important}
 .log{margin-top:14px;border:1px solid #373737;border-radius:11px;background:#0b0b0b;padding:10px}.log h3{margin:0 0 6px;font-size:16px}.loglist{max-height:150px;overflow:auto;color:#c6beb4;font-size:12px}.li{padding:5px 0;border-top:1px solid #222}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:50;display:grid;place-items:center;padding:18px}.mc{width:min(570px,100%);background:#111;border:2px solid #474747;border-radius:14px;padding:16px;box-shadow:var(--shadow)}.mc h3{margin:0 0 7px;font-size:23px}.mc p{margin:6px 0;color:#c8c1b7;line-height:1.45}.dicegrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:12px 0}.dice{aspect-ratio:1;border:1px solid #555;border-radius:9px;background:#171717;font-size:22px;font-weight:1000;cursor:pointer}.ma{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(25px);opacity:0;background:#111;border:1px solid #555;border-left:4px solid var(--red);border-radius:9px;padding:9px 13px;z-index:80;transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.roombox{
+  margin:0 0 16px;padding:11px;border:1px solid #3d3d3d;border-radius:11px;
+  background:linear-gradient(145deg,#121212,#090909);box-shadow:var(--shadow)
+}
+.roomrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.roomtitle{font-weight:1000}
+.roominput{
+  width:145px;background:#080808;border:1px solid #4a4a4a;color:#fff;border-radius:8px;
+  padding:7px 9px;text-transform:uppercase;font-weight:1000;letter-spacing:1px
+}
+.roomstatus{font-size:12px;color:#aaa;margin-top:7px}
+.roomstatus.online{color:#7ee38e}
+.roomcodebadge{
+  padding:6px 9px;border-radius:8px;border:1px solid #6d5520;background:#251c08;
+  color:#ffd76a;font-weight:1000
+}
+
 @media(max-width:720px){.screen{padding:10px}.roster{grid-template-columns:repeat(2,minmax(0,1fr))}.thumb{height:120px}.nb h3{font-size:17px}.lf{margin:14px -10px -10px;padding:10px}.players{grid-template-columns:1fr}.choice-wrap{grid-template-columns:1fr}}
 </style>
 </head>
@@ -44,6 +62,20 @@ button,select{font:inherit;color:inherit}.hidden{display:none!important}
 
 <main id="lobby" class="screen">
 <section class="hero"><h1>LOBBY</h1><p>เลือกผู้รอดชีวิตตามหมวด แล้วกดเริ่มเกม</p></section>
+
+<section class="roombox">
+  <div class="roomrow">
+    <div class="roomtitle">🌐 ห้องออนไลน์</div>
+    <button class="btn primary" id="createRoomBtn">สร้างห้อง</button>
+    <input class="roominput" id="roomInput" maxlength="8" placeholder="รหัสห้อง">
+    <button class="btn" id="joinRoomBtn">เข้าห้อง</button>
+    <span id="roomBadge" class="roomcodebadge hidden"></span>
+    <button class="btn gold hidden" id="copyRoomBtn">คัดลอกลิงก์</button>
+    <button class="btn danger hidden" id="leaveRoomBtn">ออกจากห้อง</button>
+  </div>
+  <div id="roomStatus" class="roomstatus">กำลังเชื่อม Firebase…</div>
+</section>
+
 <div id="groups"></div>
 <div class="lf"><b>เลือกแล้ว <span id="cnt">0</span> คน</b><button class="btn" id="all">เลือกทั้งหมด</button><button class="btn primary" id="start">เริ่มเกม ▶</button></div>
 </main>
@@ -78,7 +110,7 @@ function tempZero(){
 }
 function fresh(){
   return {
-    screen:"lobby",selected:[],floor:9,phase2:false,turn:1,
+    screen:"lobby",selected:[],floor:9,phase2:false,turn:1,roomCode:"",
     choices:{},unlocked:{},once:{},flags:{sigmaFullRest:false},log:[],
     tempTurn:tempZero(),
     values:Object.fromEntries(chars.map(c=>[c.id,{hp:c.hp,en:c.en,def:c.def,dmg:0,inf:0,crit:0,shield:0}]))
@@ -100,7 +132,7 @@ let state=(()=>{
     };
   }catch{return fresh()}
 })();
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function save(){localStorage.setItem(KEY,JSON.stringify(state)); if(window.cloudSave)window.cloudSave()}
 function snap(){hist.push(JSON.stringify(state));hist=hist.slice(-40);localStorage.setItem(HIST,JSON.stringify(hist))}
 function toast(t){const e=document.getElementById("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("show"),1300)}
 function info(t,x){it.textContent=t;ix.textContent=x;infoM.classList.remove("hidden")}
@@ -277,7 +309,212 @@ rn.onclick=()=>resetM.classList.add("hidden");
 ry.onclick=()=>{hist=[];localStorage.removeItem(HIST);state=fresh();save();resetM.classList.add("hidden");show();toast("รีเซ็ตแล้ว")};
 undo.onclick=()=>{if(!hist.length){toast("ไม่มีรายการให้ย้อน");return}state=JSON.parse(hist.pop());localStorage.setItem(HIST,JSON.stringify(hist));save();show();toast("ย้อนแล้ว")};
 fs.onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen()}catch{}};
+
+window.AP9 = {
+  getState:()=>JSON.parse(JSON.stringify(state)),
+  applyRemote:(remote)=>{
+    const f=fresh();
+    state={
+      ...f,...remote,
+      values:{...f.values,...(remote?.values||{})},
+      choices:{...f.choices,...(remote?.choices||{})},
+      unlocked:{...f.unlocked,...(remote?.unlocked||{})},
+      once:{...f.once,...(remote?.once||{})},
+      flags:{...f.flags,...(remote?.flags||{})},
+      tempTurn:{...f.tempTurn,...(remote?.tempTurn||{})}
+    };
+    localStorage.setItem(KEY,JSON.stringify(state));
+    show();
+  },
+  setRoom:(code)=>{
+    state.roomCode=code||"";
+    localStorage.setItem(KEY,JSON.stringify(state));
+  },
+  getRoom:()=>state.roomCode||"",
+  render:()=>show(),
+  toast:(m)=>toast(m)
+};
+
+createRoomBtn.onclick=()=>window.createOnlineRoom?.();
+joinRoomBtn.onclick=()=>window.joinOnlineRoom?.(roomInput.value.trim().toUpperCase());
+copyRoomBtn.onclick=()=>window.copyOnlineRoomLink?.();
+leaveRoomBtn.onclick=()=>window.leaveOnlineRoom?.();
+
+const roomFromUrl=new URLSearchParams(location.search).get("room");
+if(roomFromUrl) roomInput.value=roomFromUrl.toUpperCase();
+
 renderLobby();show();
 </script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAXb_jK8oWhCZ_QCJTs2RbBWzC-7eLJihk",
+  authDomain: "apartment9-f5966.firebaseapp.com",
+  projectId: "apartment9-f5966",
+  storageBucket: "apartment9-f5966.firebasestorage.app",
+  messagingSenderId: "555836874883",
+  appId: "1:555836874883:web:14d772b6ffdaa965d4bbb6",
+  measurementId: "G-BJ3VH9140V"
+};
+
+let db=null, auth=null, ready=false, room="", unsub=null;
+let applyingRemote=false, timer=null;
+
+function status(text, online=false){
+  const el=document.getElementById("roomStatus");
+  if(!el)return;
+  el.textContent=text;
+  el.className="roomstatus"+(online?" online":"");
+}
+function renderRoom(){
+  const badge=document.getElementById("roomBadge");
+  const copy=document.getElementById("copyRoomBtn");
+  const leave=document.getElementById("leaveRoomBtn");
+  if(room){
+    badge.textContent="ROOM "+room;
+    badge.classList.remove("hidden");
+    copy.classList.remove("hidden");
+    leave.classList.remove("hidden");
+    status("เชื่อมต่อแล้ว • ค่าทุกอย่างจะซิงก์ทุกเครื่องในห้องนี้",true);
+  }else{
+    badge.classList.add("hidden");
+    copy.classList.add("hidden");
+    leave.classList.add("hidden");
+    status(ready?"พร้อมออนไลน์ — สร้างห้องหรือใส่รหัสห้อง":"กำลังเชื่อม Firebase…",ready);
+  }
+}
+function makeCode(){
+  const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let x="";
+  for(let i=0;i<6;i++)x+=a[Math.floor(Math.random()*a.length)];
+  return x;
+}
+function roomDoc(code){ return doc(db,"rooms",code); }
+
+async function subscribe(code){
+  if(unsub)unsub();
+  room=code;
+  window.AP9.setRoom(code);
+  history.replaceState(null,"",location.pathname+"?room="+encodeURIComponent(code));
+  renderRoom();
+
+  unsub=onSnapshot(roomDoc(code),(snap)=>{
+    if(!snap.exists())return;
+    const data=snap.data();
+    if(!data?.state)return;
+    applyingRemote=true;
+    window.AP9.applyRemote(data.state);
+    window.AP9.setRoom(code);
+    applyingRemote=false;
+  },(err)=>{
+    console.error(err);
+    status("การซิงก์หลุด — ตรวจ Firestore Rules / Anonymous Auth");
+  });
+}
+
+window.cloudSave=function(){
+  if(!ready || !room || applyingRemote)return;
+  clearTimeout(timer);
+  timer=setTimeout(async()=>{
+    try{
+      await setDoc(roomDoc(room),{
+        state:window.AP9.getState(),
+        updatedAt:serverTimestamp()
+      },{merge:true});
+    }catch(e){
+      console.error(e);
+      window.AP9.toast("ซิงก์ออนไลน์ไม่สำเร็จ");
+    }
+  },70);
+};
+
+window.createOnlineRoom=async()=>{
+  if(!ready){window.AP9.toast("Firebase ยังไม่พร้อม");return}
+  const code=makeCode();
+  try{
+    window.AP9.setRoom(code);
+    await setDoc(roomDoc(code),{
+      state:window.AP9.getState(),
+      createdAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    });
+    await subscribe(code);
+    window.AP9.toast("สร้างห้อง "+code+" แล้ว");
+  }catch(e){
+    console.error(e);
+    window.AP9.toast("สร้างห้องไม่สำเร็จ");
+  }
+};
+
+window.joinOnlineRoom=async(code)=>{
+  code=(code||"").replace(/[^A-Z0-9]/g,"").slice(0,8);
+  if(!code){window.AP9.toast("ใส่รหัสห้องก่อน");return}
+  if(!ready){window.AP9.toast("Firebase ยังไม่พร้อม");return}
+  try{
+    const snap=await getDoc(roomDoc(code));
+    if(!snap.exists()){window.AP9.toast("ไม่พบห้อง "+code);return}
+    const data=snap.data();
+    if(data?.state)window.AP9.applyRemote(data.state);
+    await subscribe(code);
+    window.AP9.toast("เข้าห้อง "+code+" แล้ว");
+  }catch(e){
+    console.error(e);
+    window.AP9.toast("เข้าห้องไม่สำเร็จ");
+  }
+};
+
+window.copyOnlineRoomLink=async()=>{
+  if(!room)return;
+  const url=location.origin+location.pathname+"?room="+encodeURIComponent(room);
+  try{
+    await navigator.clipboard.writeText(url);
+    window.AP9.toast("คัดลอกลิงก์ห้องแล้ว");
+  }catch{
+    prompt("คัดลอกลิงก์นี้",url);
+  }
+};
+
+window.leaveOnlineRoom=()=>{
+  if(unsub)unsub();
+  unsub=null;room="";
+  window.AP9.setRoom("");
+  history.replaceState(null,"",location.pathname);
+  renderRoom();
+  window.AP9.toast("ออกจากห้องแล้ว");
+};
+
+async function boot(){
+  try{
+    const app=initializeApp(firebaseConfig);
+    db=getFirestore(app);
+    auth=getAuth(app);
+    await signInAnonymously(auth);
+    ready=true;
+    renderRoom();
+
+    const urlRoom=(new URLSearchParams(location.search).get("room")||"").toUpperCase();
+    const remembered=(urlRoom||window.AP9.getRoom()||"").toUpperCase();
+    if(remembered){
+      const snap=await getDoc(roomDoc(remembered));
+      if(snap.exists()){
+        const data=snap.data();
+        if(data?.state)window.AP9.applyRemote(data.state);
+        await subscribe(remembered);
+      }else if(urlRoom){
+        window.AP9.toast("ไม่พบห้อง "+remembered);
+      }
+    }
+  }catch(e){
+    console.error(e);
+    status("Firebase ยังใช้ไม่ได้ — เปิด Anonymous Auth และสร้าง Firestore Database ก่อน");
+  }
+}
+boot();
+</script>
+
 </body>
 </html>
