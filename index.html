@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060606">
-<title>Apartment 9 Online — Admin Combat v2</title>
+<title>Apartment 9 Online — Admin Combat v2.6.1</title>
 <style>
 :root{--red:#e02d2d;--red2:#6d1111;--gold:#e5b73e;--green:#55d173;--blue:#4aa4ff;--bg:#070707;--panel:#111;--panel2:#171717;--line:#393939;--text:#f4eee6;--muted:#aaa196;--shadow:0 15px 40px rgba(0,0,0,.48)}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(150,0,0,.16),transparent 32%),linear-gradient(145deg,#050505,#101010 58%,#070707);color:var(--text);font-family:Tahoma,"Noto Sans Thai",system-ui,sans-serif}
@@ -219,7 +219,7 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 </head>
 <body>
 <header class="top">
- <div><div class="brand">APARTMENT <b>9</b></div><div class="sub">ONLINE ADMIN COMBAT • REBUILT</div></div>
+ <div><div class="brand">APARTMENT <b>9</b></div><div class="sub">ONLINE ADMIN COMBAT • v2.6.1 SKILL FIX</div></div>
  <div class="topActions">
   <span id="syncBadge" class="badge"><i id="syncDot" class="syncdot"></i><span id="syncText">OFFLINE</span></span>
   <button class="btn gold" id="copyBtn">คัดลอกลิงก์</button>
@@ -228,7 +228,7 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 </header>
 
 <main id="connectScreen" class="screen">
- <section class="hero card"><h1>ระบบใหม่ <span class="ver">Admin Combat v2</span></h1><p>แอดมินแยกจากผู้เล่น • ทุก HP/EN/เต๋า/ซอมบี้ซิงก์ผ่าน Firestore ห้องเดียวกัน</p></section>
+ <section class="hero card"><h1>ระบบใหม่ <span class="ver">Admin Combat v2.6.1</span></h1><p>แอดมินแยกจากผู้เล่น • ทุก HP/EN/เต๋า/ซอมบี้ซิงก์ผ่าน Firestore ห้องเดียวกัน</p></section>
  <section class="connect card">
   <div class="row">
    <div class="field"><label>ชื่อ</label><input id="nameInput" maxlength="18" placeholder="ชื่อแอดมินหรือผู้เล่น"></div>
@@ -421,13 +421,13 @@ function actionEnergyCost(p,mode){
 }
 function skillIconsFromText(text){
  const a=[];
- if(/DMG|ดาเมจ|โจมตี/.test(text))a.push(["💥","DMG"]);
- if(/CRIT|คริ/.test(text))a.push(["🎯","CRIT"]);
- if(/DEF|เกราะ|โล่/.test(text))a.push(["🛡️","DEF"]);
- if(/HP|ฮีล|เลือด/.test(text))a.push(["❤️","HP"]);
- if(/EN|พลังงาน/.test(text))a.push(["⚡","EN"]);
- if(/ติดเชื้อ/.test(text))a.push(["☣️","INF"]);
- if(!a.length)a.push(["✨","SKILL"]);
+ if(/DMG|ดาเมจ|โจมตี/.test(text))a.push({icon:"💥",text:"DMG"});
+ if(/CRIT|คริ/.test(text))a.push({icon:"🎯",text:"CRIT"});
+ if(/DEF|เกราะ|โล่/.test(text))a.push({icon:"🛡️",text:"DEF"});
+ if(/HP|ฮีล|เลือด/.test(text))a.push({icon:"❤️",text:"HP"});
+ if(/EN|พลังงาน/.test(text))a.push({icon:"⚡",text:"EN"});
+ if(/ติดเชื้อ/.test(text))a.push({icon:"☣️",text:"INF"});
+ if(!a.length)a.push({icon:"✨",text:"SKILL"});
  return a.slice(0,4)
 }
 function playSkillEvent(evt){
@@ -436,7 +436,7 @@ function playSkillEvent(evt){
  $('skillEventAvatar').style.backgroundImage=`url('${c?.img||""}')`;
  $('skillSpeech').textContent=`“${evt.quote||SKILL_QUOTES[evt.characterId]||"ไปกัน!"}”`;
  $('skillEventName').textContent=`${evt.actor||""} • ${evt.skillName||"ใช้สกิล"}`;
- $('skillEffectIcons').innerHTML=(evt.icons||[]).map(x=>`<div class="skillEffectIcon"><b>${x[0]}</b>${x[1]}</div>`).join("");
+ $('skillEffectIcons').innerHTML=(evt.icons||[]).map(x=>`<div class="skillEffectIcon"><b>${x.icon||"✨"}</b>${x.text||"SKILL"}</div>`).join("");
  $('skillEventModal').classList.remove('hidden');playSfx('skill');
  setTimeout(()=>$('skillEventModal').classList.add('hidden'),2200)
 }
@@ -969,7 +969,16 @@ window.useSkill=async function(key){
  try{
   await txn(s=>{
    const q=s.players[uid];if(!q||q.dead)return;
+   q.effects=Array.isArray(q.effects)?q.effects:[];
    const all=Object.values(s.players||{}).filter(x=>!x.dead);
+   all.forEach(x=>{
+     x.effects=Array.isArray(x.effects)?x.effects:[];
+     x.tempTurn=x.tempTurn||{damage:0,def:0,crit:0};
+     x.fightBuff=x.fightBuff||{damage:0,def:0,crit:0};
+     x.damageBuff=x.damageBuff||0;
+     x.defBuff=x.defBuff||0;
+     x.critBuff=Math.min(1,x.critBuff||0);
+   });
    let rolled=false,desc="";
    const doRoll=(label,roll=r1)=>{rolled=true;q.lastRoll={roll,label,time:Date.now()};s.diceEvent={id:`S-${Date.now()}-${Math.random()}`,actor:q.name,label,roll}};
    const generic=()=>{doRoll(`ใช้สกิล ${key.toUpperCase()}`);desc=`ใช้ ${key.toUpperCase()} และทอยได้ ${r1}`};
@@ -1019,7 +1028,11 @@ window.useSkill=async function(key){
    s.audioEvent={id:`SKILL-${Date.now()}-${Math.random()}`,kind:'skill'};
    logPush(s,`${q.name}: ${desc}`);
   })
- }catch(e){showError("ใช้สกิลไม่สำเร็จ",e)}
+ }catch(e){
+   console.error("Skill error:",e);
+   alert("ใช้สกิลไม่สำเร็จ: "+(e?.message||e?.code||e));
+   showError("ใช้สกิลไม่สำเร็จ",e)
+ }
 };
 
 window.playerAttack=async function(mode){
