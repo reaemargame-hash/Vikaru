@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060606">
-<title>Apartment 9 Online — Admin Combat v2.7</title>
+<title>Apartment 9 Online — Admin Combat v2.7.1</title>
 <style>
 :root{--red:#e02d2d;--red2:#6d1111;--gold:#e5b73e;--green:#55d173;--blue:#4aa4ff;--bg:#070707;--panel:#111;--panel2:#171717;--line:#393939;--text:#f4eee6;--muted:#aaa196;--shadow:0 15px 40px rgba(0,0,0,.48)}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(150,0,0,.16),transparent 32%),linear-gradient(145deg,#050505,#101010 58%,#070707);color:var(--text);font-family:Tahoma,"Noto Sans Thai",system-ui,sans-serif}
@@ -248,12 +248,43 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 @media(max-width:900px){.fighterLobbyWrap{grid-template-columns:1fr}.fighterRoster{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.fighterRoster{grid-template-columns:1fr}.playerSlots{grid-template-columns:1fr}.weaponCatalogGrid{grid-template-columns:1fr}.fighterPreviewInner{align-items:flex-start}.fighterPreviewImg{width:90px;height:120px}}
 
+
+/* ===== v2.7.1 skill visuals + collapsible weapons ===== */
+.skillMain.passive{border-left:5px solid #f3bf34;background:linear-gradient(145deg,#241a07,#100e08)}
+.skillMain.p2{border-left:5px solid #d75cff;background:linear-gradient(145deg,#25102d,#0f0915)}
+.skillMain.unlock{border-left:5px solid #2ee3d4;background:linear-gradient(145deg,#082320,#061010)}
+.skillMain .skillHeader{padding:8px 9px}
+.skillMain .skillInfo b{font-size:11px;letter-spacing:.4px}
+.skillMain .skillInfo p{color:#f1eadf;font-size:9px}
+.skillDetails{border:1px solid #3e3e3e;background:#0f0f0f}
+.skillDetails.p2{border-color:#b75ff1;background:linear-gradient(145deg,#1d1026,#0d0a12)}
+.skillDetails.unlock{border-color:#27d8ca;background:linear-gradient(145deg,#09211f,#071010)}
+.skillDetails summary{font-size:10px;font-weight:1000}
+.skillDetails.p2 summary{color:#f0cbff}
+.skillDetails.unlock summary{color:#9ef6ef}
+.skillMain.passive .skillUse{border-color:#aa7c18;background:#3f2e07;color:#ffe28a}
+.skillDetails.p2 .skillUse{border-color:#8a46d7;background:#30134f;color:#f2dbff}
+.skillDetails.unlock .skillUse{border-color:#159d92;background:#0d3935;color:#aef7ef}
+.skillChoose{border-color:#a564ea;background:#401a68;color:#fff}
+.skillIconImg{width:34px;height:34px;border-radius:9px;background:center/cover no-repeat;border:2px solid #55452e;box-shadow:0 0 0 1px rgba(255,255,255,.08);flex:0 0 auto}
+.skillMain.p2 .skillIconImg,.skillDetails.p2 .skillIconImg{border-color:#8a4dd5}
+.skillMain.unlock .skillIconImg,.skillDetails.unlock .skillIconImg{border-color:#1ab3a8}
+.weaponDetails{margin-top:7px;border:1px solid #2c3741;border-radius:9px;background:#091019;overflow:hidden}
+.weaponDetails summary{list-style:none;cursor:pointer;padding:8px 9px;font-size:10px;font-weight:1000;display:flex;align-items:center;gap:8px;background:linear-gradient(145deg,#0f1b27,#0b1017)}
+.weaponDetails summary::-webkit-details-marker{display:none}
+.weaponDetails summary:after{content:"▾";margin-left:auto;color:#90b5d8}
+.weaponDetails[open] summary:after{content:"▴"}
+.weaponDetailsBody{padding:0 8px 8px}
+.weaponSummaryRight{font-size:9px;color:#9fcaf0}
+.weaponCompactLine{display:flex;gap:5px;flex-wrap:wrap}
+.weaponCompactLine .weaponTag{margin-top:4px}
+
 @media(max-width:1050px){.layout{grid-template-columns:1fr}.adminPanel{position:static;max-height:none}}@media(max-width:680px){.screen{padding:8px}.diag{grid-template-columns:1fr}.roster{grid-template-columns:repeat(2,minmax(0,1fr))}.playerGrid{grid-template-columns:1fr}.field{min-width:100%}.zombieVisual{height:170px}}
 </style>
 </head>
 <body>
 <header class="top">
- <div><div class="brand">APARTMENT <b>9</b></div><div class="sub">ONLINE ADMIN COMBAT • v2.7 FIGHTER LOBBY</div></div>
+ <div><div class="brand">APARTMENT <b>9</b></div><div class="sub">ONLINE ADMIN COMBAT • v2.7.1 VISUAL SKILLS</div></div>
  <div class="topActions">
   <span id="syncBadge" class="badge"><i id="syncDot" class="syncdot"></i><span id="syncText">OFFLINE</span></span>
   <button class="btn gold" id="copyBtn">คัดลอกลิงก์</button>
@@ -262,7 +293,7 @@ button,input,select{font:inherit;color:inherit}.hidden{display:none!important}
 </header>
 
 <main id="connectScreen" class="screen">
- <section class="hero card"><h1>ระบบใหม่ <span class="ver">Admin Combat v2.7</span></h1><p>แอดมินแยกจากผู้เล่น • ทุก HP/EN/เต๋า/ซอมบี้ซิงก์ผ่าน Firestore ห้องเดียวกัน</p></section>
+ <section class="hero card"><h1>ระบบใหม่ <span class="ver">Admin Combat v2.7.1</span></h1><p>แอดมินแยกจากผู้เล่น • ทุก HP/EN/เต๋า/ซอมบี้ซิงก์ผ่าน Firestore ห้องเดียวกัน</p></section>
  <section class="connect card">
   <div class="row">
    <div class="field"><label>ชื่อ</label><input id="nameInput" maxlength="18" placeholder="ชื่อแอดมินหรือผู้เล่น"></div>
@@ -563,28 +594,29 @@ function skillIconFor(key){return key==='passive'?'⚙️':key==='p21'?'Ⅰ':key
 function skillCompact(p,c){
  const own=p.uid===uid,p2lock=!phase2(),choice=p.phase2Choice;
  const passiveUse=(own&&c.id==='sigma')?`<button class="skillUse" onclick="window.useSkill('passive')" title="ใช้ Passive">▶</button>`:"";
- const passive=`<div class="skillMain passive"><div class="skillHeader"><div class="skillIcon">⚙️</div><div class="skillInfo"><b>PASSIVE</b><p>${c.passive}</p></div>${passiveUse}</div></div>`;
+ const passive=`<div class="skillMain passive"><div class="skillHeader"><div class="skillIconImg" style="background-image:url('${c.img}')"></div><div class="skillInfo"><b>PASSIVE</b><p>${c.passive}</p></div>${passiveUse}</div></div>`;
  let p2="";
  if(p2lock){
-   p2=`<details class="skillDetails"><summary>🔒 Phase 2 — เปิดเมื่อถึงชั้น 5</summary><div class="skillDetailBody"><p>${c.p21}</p><p>${c.p22}</p></div></details>`;
+   p2=`<details class="skillDetails p2"><summary><div class="skillIconImg" style="background-image:url('${c.img}')"></div>🔒 Phase 2 — เปิดเมื่อถึงชั้น 5</summary><div class="skillDetailBody"><p>${c.p21}</p><p>${c.p22}</p></div></details>`;
  }else if(choice){
    const k=choice,txt=k==='p21'?c.p21:c.p22,label=k==='p21'?'PHASE 2 (1)':'PHASE 2 (2)';
-   p2=`<details class="skillDetails p2"><summary>🟣 ${label} — ที่เลือกไว้</summary><div class="skillDetailBody"><p>${txt}</p>${own?`<button class="skillUse" onclick="window.useSkill('${k}')">▶</button>`:""}</div></details>`;
+   p2=`<details class="skillDetails p2"><summary><div class="skillIconImg" style="background-image:url('${c.img}')"></div>🟣 ${label} — ที่เลือกไว้</summary><div class="skillDetailBody"><p>${txt}</p>${own?`<button class="skillUse" onclick="window.useSkill('${k}')">▶</button>`:""}</div></details>`;
  }else{
-   p2=`<details class="skillDetails p2"><summary>🟣 Phase 2 — แตะเพื่อเลือก</summary><div class="skillDetailBody"><p><b>P2(1)</b> ${c.p21}</p>${own?`<button class="skillChoose" onclick="window.chooseP2('p21')">เลือก P2(1)</button>`:""}<p style="margin-top:7px"><b>P2(2)</b> ${c.p22}</p>${own?`<button class="skillChoose" onclick="window.chooseP2('p22')">เลือก P2(2)</button>`:""}</div></details>`;
+   p2=`<details class="skillDetails p2"><summary><div class="skillIconImg" style="background-image:url('${c.img}')"></div>🟣 Phase 2 — แตะเพื่อเลือก</summary><div class="skillDetailBody"><p><b>P2(1)</b> ${c.p21}</p>${own?`<button class="skillChoose" onclick="window.chooseP2('p21')">เลือก P2(1)</button>`:""}<p style="margin-top:7px"><b>P2(2)</b> ${c.p22}</p>${own?`<button class="skillChoose" onclick="window.chooseP2('p22')">เลือก P2(2)</button>`:""}</div></details>`;
  }
- const unl=`<details class="skillDetails unlock"><summary>${p.unlocked?'🔓':'🔒'} UNLOCK SKILL</summary><div class="skillDetailBody"><p>${c.unlock}</p>${own&&p.unlocked?`<button class="skillUse" onclick="window.useSkill('unlock')">▶</button>`:""}</div></details>`;
+ const unl=`<details class="skillDetails unlock"><summary><div class="skillIconImg" style="background-image:url('${c.img}')"></div>${p.unlocked?'🔓':'🔒'} UNLOCK SKILL</summary><div class="skillDetailBody"><p>${c.unlock}</p>${own&&p.unlocked?`<button class="skillUse" onclick="window.useSkill('unlock')">▶</button>`:""}</div></details>`;
  return `<div class="skillStack">${passive}${p2}${unl}</div>`
 }
 function weaponPanel(p){
  const own=p.uid===uid;
  const list=WEAPONS.filter(w=>((p.weapons||{})[w.id]||0)>0);
  const eq=weaponById(p.equippedWeapon);
- return `<div class="weaponBox"><div class="weaponHead"><span>🧰 อาวุธ</span><span class="weaponEquipped">${eq?`${eq.icon} สวม: ${eq.name}`:"ยังไม่สวม"}</span></div>
+ return `<details class="weaponDetails"><summary><span>🧰 อาวุธ / Loadout</span><span class="weaponSummaryRight">${eq?`${eq.icon} ${eq.name}`:"ยังไม่สวม"}</span></summary><div class="weaponDetailsBody">
+ <div class="weaponBox"><div class="weaponHead"><span>🧰 อาวุธ</span><span class="weaponEquipped">${eq?`${eq.icon} สวม: ${eq.name}`:"ยังไม่สวม"}</span></div>
  <div class="weaponList">${list.length?list.map(w=>`<button class="weaponBtn ${p.equippedWeapon===w.id?'eq':''} ${w.once?'once':''} ${w.pistol?'pistol':''}" ${own?`onclick="window.equipWeapon('${w.id}')"`:""}>${w.icon} ${w.name} ×${(p.weapons||{})[w.id]||0}</button>`).join(""):"<span class='weaponTag'>ยังไม่มีอาวุธ</span>"}</div>
- <div class="weaponMeta"><span class="weaponTag reuse">♻ ใช้ซ้ำ</span><span class="weaponTag once">💥 ใช้ครั้งเดียว</span>${p.ammo?`<span class="weaponTag">🔸 กระสุน ${p.ammo}</span>`:""}</div>
- ${own?`<div class="weaponCatalog"><div class="weaponCatalogTitle">เลือกของที่คุณมีเอง</div><div class="weaponCatalogGrid">${WEAPONS.map(w=>`<button class="weaponSpawnBtn" onclick="window.selfGrantWeapon('${w.id}')">${w.icon} + ${w.name}<small>${w.text}</small></button>`).join("")}</div><div class="weaponSelfTools"><button class="btn green" onclick="window.selfAmmo(1)">+ 🔸 กระสุน</button><button class="btn danger" onclick="window.selfAmmo(-1)">− 🔸 กระสุน</button><button class="btn" onclick="window.selfClearWeapons()">ล้างอาวุธทั้งหมด</button></div></div>`:""}
- </div>`
+ <div class="weaponCompactLine"><span class="weaponTag reuse">♻ ใช้ซ้ำ</span><span class="weaponTag once">💥 ใช้ครั้งเดียว</span>${p.ammo?`<span class="weaponTag">🔸 กระสุน ${p.ammo}</span>`:""}</div>
+ ${own?`<div class="weaponCatalog"><div class="weaponCatalogTitle">เลือกของที่คุณมีเอง</div><div class="weaponCatalogGrid">${WEAPONS.map(w=>`<button class="weaponSpawnBtn" onclick="window.selfGrantWeapon('${w.id}')">${w.icon} + ${w.name}<small>${w.text}</small></button>`).join("")}</div><div class="weaponSelfTools"><button class="btn green" onclick="window.selfAmmo(1)">+ 🔸 กระสุน</button><button class="btn danger" onclick="window.selfAmmo(-1)">− 🔸 กระสุน</button><button class="btn" onclick="window.selfClearWeapons()">ล้างอาวุธ</button></div>`:""}
+ </div></div></details>`
 }
 function playerCard(p){
  const c=cby(p.characterId);if(!c)return "";
